@@ -1,20 +1,31 @@
-import io
 import os
+import io
 import pandas as pd
+import numpy as np 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import google.generativeai as genai
 from dotenv import load_dotenv
 import streamlit as st
 
-# --- Configuration and Helper Functions ---
+# --- Helper function to add labels to bar charts ---
+def add_labels_to_bars(ax):
+    """Adds data labels to the bars in a matplotlib Axes object."""
+    for p in ax.patches:
+        width = p.get_width()
+        height = p.get_height()
+        x, y = p.get_xy()
+        if width > height: 
+            ax.annotate(f'{width:.2f}', (x + width + 0.02 * width, y + height / 2), ha='left', va='center')
+        else:
+            ax.annotate(f'{height:.0f}', (x + width / 2, y + height + 0.02 * height), ha='center', va='bottom')
 
+# --- Configuration and Helper Functions ---
 def configure_gemini():
     """Loads the API key from .env and configures the Gemini API."""
     load_dotenv()
     api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        # Display an error in the Streamlit app instead of exiting
         st.error("Error: GOOGLE_API_KEY not found. Please set it in your .env file.")
         st.stop()
     try:
@@ -30,10 +41,16 @@ def get_chart_intent_from_gemini(question, df_columns):
     prompt = f"""
     You are a data analysis assistant. Based on the user's question about a dataset 
     with columns [{", ".join(df_columns)}], return exactly one of the following keywords:
-    - 'grade_split': For questions about the proportion or split of grades.
-    - 'avg_scores_by_location': For questions comparing average scores by location.
-    - 'score_distribution': For questions about the distribution or frequency of scores.
-    - 'unknown': If the question does not match any of the above.
+    - 'grade_split'
+    - 'avg_scores_by_location'
+    - 'score_distribution'
+    - 'top_10_players'
+    - 'skill_heatmap'
+    - 'radar_profile_by_grade'
+    - 'player_quadrant'
+    - 'skill_vs_average_scatter'
+    - 'player_count_by_location'
+    - 'unknown'
 
     User Question: "{question}"
     Keyword:
@@ -58,14 +75,65 @@ def generate_chart(intent, df):
         ax.set_title("Average Overall Score by Location")
         avg_scores = df.groupby('Location')['Overall AVG'].mean().sort_values(ascending=False)
         sns.barplot(x=avg_scores.index, y=avg_scores.values, ax=ax)
-        ax.set_xlabel("Location")
-        ax.set_ylabel("Average Score")
+        add_labels_to_bars(ax)
 
     elif intent == "score_distribution":
         ax.set_title("Distribution of Overall Averages")
         sns.histplot(df['Overall AVG'], kde=True, bins=20, ax=ax)
-        ax.set_xlabel("Overall Average")
-        ax.set_ylabel("Number of Players")
+
+    elif intent == "top_10_players":
+        ax.set_title("Top 10 Players by Overall Average")
+        top_10 = df.nlargest(10, 'Overall AVG').sort_values('Overall AVG', ascending=True)
+        ax.barh(top_10['Student'], top_10['Overall AVG'])
+        add_labels_to_bars(ax)
+
+    elif intent == "skill_heatmap":
+        ax.set_title("Correlation Heatmap of Skills")
+        corr = df[['FG', 'BG', 'FA', 'BA', 'BS', 'Overall AVG']].corr()
+        sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
+
+    elif intent == "radar_profile_by_grade":
+        plt.close(fig) 
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_subplot(111, polar=True)
+        ax.set_title("Average Skill Profile: Grade A vs. Grade B")
+        skills_for_radar = ['FG', 'BG', 'FA', 'BA', 'BS']
+        grade_a_means = df[df['Grade'] == 'A'][skills_for_radar].mean().values
+        grade_b_means = df[df['Grade'] == 'B'][skills_for_radar].mean().values
+        angles = np.linspace(0, 2 * np.pi, len(skills_for_radar), endpoint=False).tolist()
+        angles += angles[:1]
+        values_a = np.concatenate((grade_a_means, [grade_a_means[0]]))
+        plot_a, = ax.plot(angles, values_a, 'o-', label='Grade A')
+        ax.fill(angles, values_a, alpha=0.1)
+        values_b = np.concatenate((grade_b_means, [grade_b_means[0]]))
+        plot_b, = ax.plot(angles, values_b, 'o-', label='Grade B')
+        ax.fill(angles, values_b, alpha=0.1)
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(skills_for_radar)
+        ax.legend()
+        for i, (angle, value) in enumerate(zip(angles[:-1], grade_a_means)):
+            ax.text(angle, value + 5, f'{value:.1f}', ha='center', va='center', color=plot_a.get_color())
+        for i, (angle, value) in enumerate(zip(angles[:-1], grade_b_means)):
+            ax.text(angle, value + 5, f'{value:.1f}', ha='center', va='center', color=plot_b.get_color())
+
+    elif intent == "player_quadrant":
+        ax.set_title("Player Performance Quadrant (Attack Skills)")
+        sns.scatterplot(data=df, x='FA', y='BA', hue='Grade', ax=ax, alpha=0.7)
+        avg_fa = df['FA'].mean()
+        avg_ba = df['BA'].mean()
+        ax.axvline(avg_fa, color='r', linestyle='--', lw=1)
+        ax.axhline(avg_ba, color='r', linestyle='--', lw=1)
+        ax.legend(title="Grade")
+    
+    elif intent == "skill_vs_average_scatter":
+        ax.set_title("Forehand Attack Score vs. Overall Average")
+        sns.regplot(data=df, x='FA', y='Overall AVG', ax=ax, line_kws={"color": "red"})
+
+    elif intent == "player_count_by_location":
+        ax.set_title("Number of Players by Location")
+        sns.countplot(data=df, x='Location', order=df['Location'].value_counts().index, ax=ax)
+        add_labels_to_bars(ax)
+
     else:
         return None
 
@@ -73,46 +141,46 @@ def generate_chart(intent, df):
     return fig
 
 # --- Streamlit Web App ---
-
-# Configure the page
 st.set_page_config(page_title="Badminton Performance Analyzer", layout="wide")
 st.title("🏸 AI-Powered Badminton Performance Analyzer")
 
-# Configure the Gemini API at the start
 configure_gemini()
 
-# Load data from Streamlit Secrets
 try:
-    # Access the secret string
     csv_string = st.secrets["csv_data"]
-    # Use io.StringIO to treat the string as a file and specify the tab separator
     df = pd.read_csv(io.StringIO(csv_string), sep='\t')
     
-   
-
 except Exception as e:
     st.error(f"Fatal Error: Could not load data from Streamlit Secrets. Details: {e}")
     st.stop()
 
-# User input
-user_question = st.text_input(
-    "Ask a question about the data:", 
-    "e.g., Show me the grade distribution"
-)
+# --- FAQ-Style Interface ---
+st.sidebar.header("Frequently Asked Questions")
 
-if st.button("Generate Chart"):
-    if user_question:
-        with st.spinner("Analyzing your question with Gemini..."):
-            intent = get_chart_intent_from_gemini(user_question, df.columns)
+FAQ_QUESTIONS = {
+    "How many players are in each location?": "player count by location",
+    "Who are the top 10 players?": "top 10 players",
+    "What is the split of student grades?": "grade split",
+    "How do the different locations compare on average?": "average scores by location",
+    "Show me a heatmap of skill correlations.": "skill heatmap",
+    "Compare the skills of Grade A vs. Grade B players.": "radar profile by grade",
+    "Categorize players by their attack skills.": "player quadrant",
+    "How does Forehand Attack relate to the overall average?": "skill vs average scatter"
+}
+
+# Create a button for each FAQ
+for question, intent_keyword in FAQ_QUESTIONS.items():
+    if st.sidebar.button(question):
+        with st.spinner("Analyzing your question..."):
+            intent = get_chart_intent_from_gemini(intent_keyword, df.columns)
         
-        st.write(f"🔍 **Gemini Interpreted Intent:** `{intent}`")
+        st.write(f"🔍 **Question:** *{question}*")
+        st.write(f"🤖 **Interpreted Intent:** `{intent}`")
 
         if intent != "unknown":
             with st.spinner("Creating your chart..."):
+                # df_unpivoted is no longer needed, so we pass `None` or just remove it
                 chart_figure = generate_chart(intent, df)
                 st.pyplot(chart_figure)
         else:
             st.warning("Sorry, I couldn't determine a specific chart for your request.")
-            st.info("Please try asking about: grade splits, average scores by location, or score distribution.")
-    else:
-        st.warning("Please enter a question.")
