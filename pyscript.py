@@ -84,10 +84,12 @@ configure_gemini()
 
 # Load data from Streamlit Secrets
 try:
-    # Access the secret string you saved in the dashboard
     csv_string = st.secrets["csv_data"]
-    # Use io.StringIO to let pandas read the string as if it were a file
     df = pd.read_csv(io.StringIO(csv_string))
+
+    # --- ADD THIS LINE FOR DEBUGGING ---
+    st.write("Actual DataFrame Columns:", df.columns.to_list())
+
 except Exception as e:
     st.error(f"Fatal Error: Could not load data from Streamlit Secrets. Details: {e}")
     st.stop()
