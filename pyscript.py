@@ -88,8 +88,7 @@ try:
     # Use io.StringIO to treat the string as a file and specify the tab separator
     df = pd.read_csv(io.StringIO(csv_string), sep='\t')
     
-    # You can keep this line temporarily to verify the fix
-    st.write("Actual DataFrame Columns:", df.columns.to_list())
+   
 
 except Exception as e:
     st.error(f"Fatal Error: Could not load data from Streamlit Secrets. Details: {e}")
