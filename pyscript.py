@@ -221,5 +221,3 @@ if st.sidebar.button("Generate Chart"):
     else:
         st.warning("Please enter a question.")
 
-st.subheader("Raw Data")
-st.dataframe(df)
