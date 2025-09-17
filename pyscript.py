@@ -1,3 +1,4 @@
+import io
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -80,11 +81,15 @@ st.title("🏸 AI-Powered Badminton Performance Analyzer")
 # Configure the Gemini API at the start
 configure_gemini()
 
-# Load data
+
+# Load data from Streamlit Secrets
 try:
-    df = pd.read_csv("./Data/Test Analysis Sheet - student_averages.csv")
-except FileNotFoundError:
-    st.error("Fatal Error: The data file './Data/Test Analysis Sheet - student_averages.csv' was not found.")
+    # Access the secret string you saved in the dashboard
+    csv_string = st.secrets["csv_data"]
+    # Use io.StringIO to let pandas read the string as if it were a file
+    df = pd.read_csv(io.StringIO(csv_string))
+except Exception as e:
+    st.error(f"Fatal Error: Could not load data from Streamlit Secrets. Details: {e}")
     st.stop()
 
 # User input
