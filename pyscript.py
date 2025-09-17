@@ -179,7 +179,7 @@ for question, intent_keyword in FAQ_QUESTIONS.items():
 
         if intent != "unknown":
             with st.spinner("Creating your chart..."):
-                # df_unpivoted is no longer needed, so we pass `None` or just remove it
+            
                 chart_figure = generate_chart(intent, df)
                 st.pyplot(chart_figure)
         else:
