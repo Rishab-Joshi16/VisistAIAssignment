@@ -81,13 +81,14 @@ st.title("🏸 AI-Powered Badminton Performance Analyzer")
 # Configure the Gemini API at the start
 configure_gemini()
 
-
 # Load data from Streamlit Secrets
 try:
+    # Access the secret string
     csv_string = st.secrets["csv_data"]
-    df = pd.read_csv(io.StringIO(csv_string))
-
-    # --- ADD THIS LINE FOR DEBUGGING ---
+    # Use io.StringIO to treat the string as a file and specify the tab separator
+    df = pd.read_csv(io.StringIO(csv_string), sep='\t')
+    
+    # You can keep this line temporarily to verify the fix
     st.write("Actual DataFrame Columns:", df.columns.to_list())
 
 except Exception as e:
