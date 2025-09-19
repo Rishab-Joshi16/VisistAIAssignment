@@ -162,7 +162,7 @@ FAQ_QUESTIONS = {
     "Who are the top 10 players?": "top 10 players",
     "What is the split of student grades?": "grade split",
     "How do the different locations compare on average?": "average scores by location",
-    "Show me a heatmap of skill correlations.": "skill heatmap",
+    # "Show me a heatmap of skill correlations.": "skill heatmap",
     "Compare the skills of Grade A vs. Grade B players.": "radar profile by grade",
     "Categorize players by their attack skills.": "player quadrant",
     "How does Forehand Attack relate to the overall average?": "skill vs average scatter"
